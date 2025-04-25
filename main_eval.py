@@ -2,16 +2,15 @@ from sklearn import metrics
 import pandas as pd 
 import matplotlib.pyplot as plt
 import numpy as np 
+from sklearn.metrics import f1_score, precision_score, recall_score
 
 def get_confusion_matrix(y_test, y_pred):
-    print("(+) Getting confusion matrix...")
     matrix = metrics.confusion_matrix(y_test, y_pred)
     matrix_df = pd.DataFrame(
         matrix,
         index=["Actual Normal", "Actual Anomaly"],
         columns=["Predicted Normal", "Predicted Anomaly"]
     )
-
     return matrix
 
 def show_classification_report(y_test, y_pred):
@@ -19,7 +18,7 @@ def show_classification_report(y_test, y_pred):
     print(metrics.classification_report(y_test, y_pred, target_names=["Normal", "Anomaly"]))
     
 def show_confusion_matrix(matrix):
-    print("(+) Ploting...")
+    print("(+) Getting confusion matrix...")
     cell_colors = [
         ["lightgreen", "lightcoral"],   # Row for actual normal (TN, FP)
         ["lightcoral", "lightgreen"]      # Row for actual anomaly (FN, TP)
@@ -44,7 +43,7 @@ def show_confusion_matrix(matrix):
     #ax.set_xlabel("Predicted Label")
     #ax.set_ylabel("True Label")
     ax.set_title("Confusion Matrix", pad=20)
-
+    
     # Reverse y-axis and remove frame ticks
     ax.set_xlim(0, 2)
     ax.set_ylim(0, 2)
@@ -57,13 +56,22 @@ def show_confusion_matrix(matrix):
     plt.show()
     
 def plot_evaluation(y_test, y_pred):
+    print("(+) Ploting...")
+    f1= f1_score(y_test, y_pred)
+    precision= precision_score(y_test, y_pred)
+    recall= recall_score(y_test, y_pred)
+    
+    metrics_text = f'F1_Score= {f1:.2f}, prec= {precision:.2f}, rec= {recall:.2f}'
+    
     _, ax = plt.subplots(figsize=(20, 4))
-    ax.set_title(f'Comparing ypred and ytest', fontsize = 36)
+    ax.set_title(f'Comparing y_pred and y_test ({metrics_text})', fontsize = 25, pad = 25)
     ax.plot(-1 * y_pred, color = '0.25', label = 'Predicted')
     ax.plot(y_test, color = 'lightcoral', alpha = 0.75, lw = 2, label = 'True Label')
     ax.fill_between(np.arange(len(y_pred)), -1 * y_pred, 0, color = '0.25')
     ax.fill_between(np.arange(len(y_test)), 0, y_test, color = 'lightcoral')
     ax.set_yticks([-1,0,1])
     ax.set_yticklabels(['Predicted','Benign','Attacked'])
-    plt.tight_layout()
+    plt.suptitle("")
+
+    plt.tight_layout()  # Leaves space for figtext at the bottom    
     plt.show()

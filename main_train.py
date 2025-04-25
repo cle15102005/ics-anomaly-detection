@@ -7,7 +7,7 @@ if __name__ == '__main__':
     x_test: contains both normal and abnormal data, used for prediction
     y_test= (0 if normal else 1)
     x_pred: predicted x
-    y_pred= (1 if normal else -1)
+    y_pred= (0 if normal else 1)
     """
     x_train, _ = data_loader.load_train_data("BATADAL")
     x_test, y_test, _ = data_loader.load_test_data("BATADAL")      
@@ -15,8 +15,7 @@ if __name__ == '__main__':
     params = {
         'kernel' : 'rbf',   #determines the decision boundary shape.
         'gamma' : 'auto',   #determines the influence of a single training point reaches.
-        'nu' : 0.01,        #determines the sensitivity to anomalies
-        'verbose' : 0       #...
+        'nu' : 0.001,        #determines the sensitivity to anomalies
     }
     ocsvm_model = ocsvm.OCSVM(**params)
 
@@ -26,7 +25,6 @@ if __name__ == '__main__':
     #Predic model
     y_pred =  ocsvm_model.predict(x_test)
     
-    #Evaluate model
-    matrix = main_eval.get_confusion_matrix(y_test, y_pred)
+    #Evaluate model    
     #main_eval.show_confusion_matrix(matrix)
     main_eval.plot_evaluation(y_test, y_pred)

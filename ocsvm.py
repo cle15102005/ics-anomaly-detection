@@ -23,8 +23,7 @@ class OCSVM(object):
         params = {
             'kernel' : 'rbf',   #mode: rbf / linear / poly / sigmoid
             'gamma' : 'auto',   #mode: scale / auto
-            'nu' : 0.01,        #value = [0.01, 0.02, 0.03, ..., 0,1]
-            'verbose' : 0       
+            'nu' : 0.01,        #value = [0.01, 0.02, 0.03, ..., 0,1]     
             }
 
         #Adjust parameters
@@ -37,15 +36,8 @@ class OCSVM(object):
         """
         print("(+) Creating OCSVM model...")
         
-        # retrieve params
-        verbose = self.params['verbose'] # echo on screen
-
         # create model
         ocsvm = svm.OneClassSVM(kernel= self.params['kernel'], gamma= self.params['gamma'], nu= self.params['nu'])
-
-        # print OCSVM specs
-        if verbose > 0:
-            print('Default model creation')
 
         self.ocsvm = ocsvm
         return ocsvm
@@ -59,10 +51,10 @@ class OCSVM(object):
         self.ocsvm.fit(x_train)
         return NotImplementedError
 
-    def predict(self, x_test, **test_params):
+    def predict(self, x_test):
         """ Predict the prediction y_pred
         """
-        y_pred = self.ocsvm.predict(x_test, **test_params)
+        y_pred = self.ocsvm.predict(x_test)
         return np.where(y_pred == -1, 1, 0)
 
     def get_ocsvm(self):
