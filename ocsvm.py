@@ -21,11 +21,11 @@ class OCSVM(object):
         
         # Default parameter values.
         params = {
-            'kernel' : 'rbf',   #mode: rbf / linear / poly / sigmoid
-            'gamma' : 'auto',   #mode: scale / auto
-            'nu' : 0.01,        #value = [0.01, 0.02, 0.03, ..., 0,1]     
-            }
-
+        'kernel' : 'rbf',   #determines the decision boundary shape.
+        'gamma' : 'auto',   #determines the influence of a single training point reaches.
+        'nu' : 0.001,       #determines the sensitivity to anomalies
+        }
+        
         #Adjust parameters
         for key,item in kwargs.items():
             params[key] = item
@@ -56,7 +56,7 @@ class OCSVM(object):
         """
         y_pred = self.ocsvm.predict(x_test)
         return np.where(y_pred == -1, 1, 0)
-
+  
     def get_ocsvm(self):
         """ Return the ocsvm model
         """

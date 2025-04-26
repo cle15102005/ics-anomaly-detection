@@ -55,7 +55,7 @@ def show_confusion_matrix(matrix):
     plt.tight_layout()
     plt.show()
     
-def plot_evaluation(y_test, y_pred):
+def plot_evaluation(model_name, y_test, y_pred):
     print("(+) Ploting...")
     f1= f1_score(y_test, y_pred)
     precision= precision_score(y_test, y_pred)
@@ -73,5 +73,7 @@ def plot_evaluation(y_test, y_pred):
     ax.set_yticklabels(['Predicted','Benign','Attacked'])
     plt.suptitle("")
 
-    plt.tight_layout()  # Leaves space for figtext at the bottom    
+    plt.tight_layout()  # Leaves space for figtext at the bottom  
+    plt.savefig(f'{model_name}.png', dpi=300)  
     plt.show()
+    
