@@ -1,27 +1,20 @@
 from sklearn import metrics
-import pandas as pd 
 import matplotlib.pyplot as plt
 import numpy as np 
 from sklearn.metrics import f1_score, precision_score, recall_score
 
 def get_confusion_matrix(y_test, y_pred):
-    matrix = metrics.confusion_matrix(y_test, y_pred)
-    matrix_df = pd.DataFrame(
-        matrix,
-        index=["Actual Normal", "Actual Anomaly"],
-        columns=["Predicted Normal", "Predicted Anomaly"]
-    )
-    return matrix
+    print("(+) Getting confusion matrix...")
+    return metrics.confusion_matrix(y_test, y_pred)
 
 def show_classification_report(y_test, y_pred):
     print("\nClassification Report:")
     print(metrics.classification_report(y_test, y_pred, target_names=["Normal", "Anomaly"]))
     
 def show_confusion_matrix(matrix):
-    print("(+) Getting confusion matrix...")
     cell_colors = [
-        ["lightgreen", "lightcoral"],   # Row for actual normal (TN, FP)
-        ["lightcoral", "lightgreen"]      # Row for actual anomaly (FN, TP)
+        ["lightblue", "orange"],   # TN, FP
+        ["orange", "lightblue"]    # FN, TP
     ]
 
     _, ax = plt.subplots(figsize=(6, 4))
@@ -57,11 +50,11 @@ def show_confusion_matrix(matrix):
     
 def plot_evaluation(model_name, y_test, y_pred):
     print("(+) Ploting...")
-    f1= f1_score(y_test, y_pred)
+    f1= f1_score(y_test, y_pred, average= 'macro')
     precision= precision_score(y_test, y_pred)
     recall= recall_score(y_test, y_pred)
     
-    metrics_text = f'F1_Score= {f1:.2f}, prec= {precision:.2f}, rec= {recall:.2f}'
+    metrics_text = f'F1={f1:.2f}, Prec={precision:.2f}, Rec={recall:.2f}'
     
     _, ax = plt.subplots(figsize=(20, 4))
     ax.set_title(f'Comparing y_pred and y_test ({metrics_text})', fontsize = 25, pad = 25)
@@ -74,6 +67,5 @@ def plot_evaluation(model_name, y_test, y_pred):
     plt.suptitle("")
 
     plt.tight_layout()  # Leaves space for figtext at the bottom  
-    plt.savefig(f'{model_name}.png', dpi=300)  
+    plt.savefig(f'ics-anomaly-detection-main/plots/{model_name}-{f1:.2f}.png', dpi=300)  
     plt.show()
-    
