@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 class LSTM(object):
     def __init__(self, **kwargs):
-        print("(+) Initializing LSTM Predictor...")
+        print("(+) Initializing LSTM model...")
 
         params = {
             'nI': None,           # Number of input features
@@ -24,7 +24,7 @@ class LSTM(object):
         self.threshold = None
 
     def create_model(self):
-        print("(+) Creating LSTM Predictor model...")
+        print("(+) Creating LSTM model...")
         self.lstm = models.Sequential()
         input_shape = (self.params['history_length'], self.params['nI'])
 
@@ -73,7 +73,7 @@ class LSTM(object):
         )
 
     def detect(self, X_test, X_val, quantile=0.95, window=1):
-        print("(+) Detecting anomalies with LSTM Predictor...")
+        print("(+) Detecting anomalies with LSTM model...")
         Xv_seq, yv_seq = self.prepare_data(X_val)
         preds_val = self.lstm.predict(Xv_seq)
         val_errors = (preds_val.flatten() - yv_seq) ** 2
@@ -98,7 +98,7 @@ class LSTM(object):
         return flags
 
     def hyperparameter_tuning(self, X_train, X_val, patience=3):
-        print("(+) Starting LSTM Predictor hyperparameter tuning...")
+        print("(+) Hyperparameter tuning...")
         if self.params['nI'] is None:
             # Infer nI from the training data if not provided
             self.params['nI'] = X_train.shape[1]
