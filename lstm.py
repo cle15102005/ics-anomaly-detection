@@ -11,7 +11,7 @@ class LSTM(object):
         params = {
             'nI': None,           # Number of input features
             'n_layers': 2,        # Number of LSTM layers
-            'units': 32,          # Number of units per LSTM layer
+            'units': 64,          # Number of units per LSTM layer
             'epochs': 100,
             'batch_size': 512,
             'history_length': 50, # Sequence length for LSTM
@@ -104,8 +104,8 @@ class LSTM(object):
             self.params['nI'] = X_train.shape[1]
 
         param_grid = {
-            'n_layers': [1, 2, 3],
-            'units': [16, 32, 64],
+            'n_layers': [1, 2, 3, 4],
+            'units': [4, 8, 16, 32, 64, 128],
             'history_length': [50, 100]
         }
 
