@@ -131,14 +131,18 @@ class AE(object):
         }
 
         best_mse = float('inf')
-        best_params = {}
+        best_params = None  # Start as None to detect failure
 
         for combo in tqdm(list(ParameterGrid(grid)), desc="Tuning"):
             self.params['nH'] = combo['nH']
             self.params['cf'] = combo['cf']
             self.create_model()
 
-            early_stop = callbacks.EarlyStopping(monitor='val_loss', patience=patience, restore_best_weights=True)
+            early_stop = callbacks.EarlyStopping(
+                monitor='val_loss',
+                patience=patience,
+                restore_best_weights=True
+            )
 
             self.autoencoder.fit(
                 X_train_seq, X_train_seq,
@@ -156,9 +160,15 @@ class AE(object):
                 best_mse = mse
                 best_params = combo
 
-        print(f"(+) Best parameters: {best_params}, Validation MSE: {best_mse:.6f}")
-        self.params['nH'] = best_params['nH']
-        self.params['cf'] = best_params['cf']
+        if best_params is not None:
+            print(f"(+) Best parameters: {best_params}, Validation MSE: {best_mse:.6f}")
+            self.params['nH'] = best_params['nH']
+            self.params['cf'] = best_params['cf']
+        else:
+            print("(-) No valid parameter combination found. Using default nH=2, cf=2.0.")
+            self.params['nH'] = 2
+            self.params['cf'] = 2.0
+
         self.train(X_train, X_val)
 
     def get_model(self):
