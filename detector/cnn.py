@@ -1,109 +1,145 @@
 import numpy as np
 from keras import models, layers, optimizers, callbacks
 from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import ParameterGrid
 from tqdm import tqdm
-from itertools import product
 
 class CNN(object):
-    def __init__(self, input_length= None, n_layers=1, n_units=32, kernel_size=3):
-        self.input_length = input_length
-        self.n_layers = n_layers
-        self.n_units = n_units
-        self.kernel_size = kernel_size
-        self.model = self.create_model()
+    def __init__(self, **kwargs):
+        print("(+) Initializing CNN Predictor...")
+
+        params = {
+            'nI': None,           # Number of input features
+            'n_layers': 2,        # Number of Conv1D layers
+            'units': 32,          # Number of filters per Conv1D layer
+            'kernel_size': 3,     # Size of the kernel
+            'epochs': 100,
+            'batch_size': 512,
+            'history_length': 50,
+        }
+
+        for key, val in kwargs.items():
+            params[key] = val
+        self.params = params
+        self.cnn = None
         self.threshold = None
 
     def create_model(self):
-        model = models.Sequential()
-        model.add(layers.Conv1D(filters=self.n_units, kernel_size=self.kernel_size, activation='relu',
-                         input_shape=(self.input_length, 1)))
-        for _ in range(self.n_layers - 1):
-            model.add(layers.Conv1D(filters=self.n_units, kernel_size=self.kernel_size, activation='relu'))
-        model.add(layers.Flatten())
-        model.add(layers.Dense(1))  # Regression output
-        model.compile(optimizer=optimizers.Adam(), loss='mse')
-        return model
+        print("(+) Creating CNN Predictor model...")
+        self.cnn = models.Sequential()
+        input_shape = (self.params['history_length'], self.params['nI'])
 
-    def create_sequences(self, X, length):
-        X_seq, y_seq = [], []
-        for i in range(len(X) - length):
-            X_seq.append(X[i:i + length, 0])  # Use only 1D input for Conv1D
-            y_seq.append(X[i + length, 0])    # Predict sensor 0
-        X_seq = np.array(X_seq)
-        return X_seq[..., np.newaxis], np.array(y_seq)  # Add channel dimension
-    
-    def train(self, X_train, X_val=None, epochs=100, batch_size=32, patience=5):
-        X_seq, y_seq = self.create_sequences(X_train, self.input_length)
-        if X_val is not None:
-            Xv_seq, yv_seq = self.create_sequences(X_val, self.input_length)
-        else:
-            Xv_seq, yv_seq = None, None
+        # First layer with input shape
+        self.cnn.add(layers.Conv1D(filters=self.params['units'], kernel_size=self.params['kernel_size'],
+                                   activation='relu', input_shape=input_shape))
+
+        # Additional hidden layers
+        for _ in range(self.params['n_layers'] - 1):
+            self.cnn.add(layers.Conv1D(filters=self.params['units'], kernel_size=self.params['kernel_size'],
+                                       activation='relu'))
+
+        self.cnn.add(layers.Flatten())
+        self.cnn.add(layers.Dense(1))  # Regression output
+        self.cnn.compile(optimizer=optimizers.Adam(), loss='mse')
+
+    def prepare_data(self, X):
+        print(f"(+) Preparing data with history_length={self.params['history_length']}...")
+        seq_X, seq_y = [], []
+        for i in range(len(X) - self.params['history_length']):
+            seq_X.append(X[i:i + self.params['history_length']])
+            seq_y.append(X[i + self.params['history_length'], 0])
+        return np.array(seq_X), np.array(seq_y)
+
+    def train(self, X_train, X_val=None, patience=3):
+        X_seq, y_seq = self.prepare_data(X_train)
+        self.create_model()
 
         _callbacks = []
-        if Xv_seq is not None:
-            _callbacks.append(callbacks.EarlyStopping(monitor='val_loss', patience=patience, restore_best_weights=True))
+        if X_val is not None:
+            Xv_seq, yv_seq = self.prepare_data(X_val)
+            early_stop = callbacks.EarlyStopping(monitor='val_loss', patience=patience, restore_best_weights=True)
+            _callbacks.append(early_stop)
+            validation_data = (Xv_seq, yv_seq)
+        else:
+            validation_data = None
 
-        self.model.fit(
-            X_seq, y_seq,
-            validation_data=(Xv_seq, yv_seq) if Xv_seq is not None else None,
-            epochs=epochs,
-            batch_size=batch_size,
-            verbose=0,
-            callbacks=_callbacks
+        self.cnn.fit(
+            X_seq[..., np.newaxis], y_seq,
+            epochs=self.params['epochs'],
+            batch_size=self.params['batch_size'],
+            validation_data=(Xv_seq[..., np.newaxis], yv_seq) if X_val is not None else None,
+            callbacks=_callbacks,
+            verbose=1
         )
 
-    def detect(self, X_test, X_val=None, quantile=0.95, window=1):
-        X_seq, y_seq = self.create_sequences(X_test, self.input_length)
-        preds = self.model.predict(X_seq).flatten()
-        errors = (preds - y_seq) ** 2
+    def detect(self, X_test, X_val, quantile=0.95, window=1):
+        print("(+) Detecting anomalies with CNN Predictor...")
+        Xv_seq, yv_seq = self.prepare_data(X_val)
+        preds_val = self.cnn.predict(Xv_seq[..., np.newaxis])
+        val_errors = (preds_val.flatten() - yv_seq) ** 2
+        self.threshold = np.quantile(val_errors, quantile)
 
-        # Compute threshold from validation set
-        if X_val is not None:
-            Xv_seq, yv_seq = self.create_sequences(X_val, self.input_length)
-            val_preds = self.model.predict(Xv_seq).flatten()
-            val_errors = (val_preds - yv_seq) ** 2
-            self.threshold = np.quantile(val_errors, quantile)
+        Xt_seq, yt_seq = self.prepare_data(X_test)
+        preds_test = self.cnn.predict(Xt_seq[..., np.newaxis])
+        test_errors = (preds_test.flatten() - yt_seq) ** 2
+        raw_flags = (test_errors > self.threshold).astype(int)
 
-        flags = (errors > self.threshold).astype(int)
-        flags = np.concatenate([np.zeros(self.input_length), flags])  # Padding for alignment
+        aligned_flags = np.concatenate([np.zeros(self.params['history_length'], dtype=int), raw_flags])
 
         if window > 1:
-            smoothed = np.zeros_like(flags)
-            for i in range(len(flags)):
-                smoothed[i] = np.max(flags[max(0, i - window + 1):i + 1])
-            flags = smoothed
+            flags = np.zeros_like(aligned_flags)
+            for i in range(len(aligned_flags)):
+                start = max(0, i - window + 1)
+                flags[i] = aligned_flags[start:i+1].max()
+        else:
+            flags = aligned_flags
 
         return flags
 
     def hyperparameter_tuning(self, X_train, X_val, patience=3):
-        print("(+) Tuning CNN hyperparameters...")
-        best_model = None
+        print("(+) Starting CNN Predictor hyperparameter tuning...")
+        if self.params['nI'] is None:
+            self.params['nI'] = X_train.shape[1]
+
+        param_grid = {
+            'n_layers': [1, 2, 3, 4],
+            'units': [4, 8, 16, 32, 64, 128],
+            'history_length': [50, 100]
+        }
+
         best_mse = float('inf')
-        best_params = {}
+        best_config = {}
 
-        layer_range = [1, 2, 3, 4, 5]
-        unit_range = [4, 8, 16, 32, 64, 128, 256]
-        history_lengths = [50, 100, 200]
+        for combo in tqdm(list(ParameterGrid(param_grid)), desc="CNN Tuning"):
+            self.params['n_layers'] = combo['n_layers']
+            self.params['units'] = combo['units']
+            self.params['history_length'] = combo['history_length']
 
-        for n_layers, n_units, hist_len in tqdm(product(layer_range, unit_range, history_lengths),
-                                                total=len(layer_range)*len(unit_range)*len(history_lengths),
-                                                desc="CNN tuning"):
+            X_seq, y_seq = self.prepare_data(X_train)
+            Xv_seq, yv_seq = self.prepare_data(X_val)
 
-            model = CNN(input_length=hist_len,
-                                         n_layers=n_layers,
-                                         n_units=n_units)
+            self.create_model()
+            early_stop = callbacks.EarlyStopping(monitor='val_loss', patience=patience, restore_best_weights=True)
 
-            model.train(X_train, X_val, patience=patience)
-            Xv_seq, yv_seq = model.create_sequences(X_val, hist_len)
-            preds = model.model.predict(Xv_seq).flatten()
+            self.cnn.fit(
+                X_seq[..., np.newaxis], y_seq,
+                epochs=self.params['epochs'],
+                batch_size=self.params['batch_size'],
+                validation_data=(Xv_seq[..., np.newaxis], yv_seq),
+                callbacks=[early_stop],
+                verbose=0
+            )
+
+            preds = self.cnn.predict(Xv_seq[..., np.newaxis])
             mse = mean_squared_error(yv_seq, preds)
-
-            print(f"-> layers={n_layers}, units={n_units}, hist={hist_len}, Val MSE={mse:.5f}")
 
             if mse < best_mse:
                 best_mse = mse
-                best_model = model
-                best_params = {'n_layers': n_layers, 'n_units': n_units, 'input_length': hist_len}
+                best_config = combo
 
-        print(f"(✓) Best CNN config: {best_params}, Val MSE={best_mse:.5f}")
-        self.__dict__.update(best_model.__dict__)
+        print(f"Best params: {best_config}, Validation MSE: {best_mse:.6f}")
+        self.params.update(best_config)
+        self.train(X_train, X_val)
+
+    def get_model(self):
+        return self.cnn

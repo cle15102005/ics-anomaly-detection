@@ -2,10 +2,12 @@ import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 import sys
-sys.path.append('ics-anomaly-detection-main/detector')  # Add folder to system path
+sys.path.append('ics-anomaly-detection-main/detector')  # Detector folder
+sys.path.append('ics-anomaly-detection-main/attacker')  # Backtime folder
 
 from detector import rf, svr, xgb, ada, cnn, lstm, ae
-import backtime
+from attacker import backtime
+
 import data_loader, main_eval, utils
 import time
 from sklearn.metrics import f1_score
@@ -15,7 +17,6 @@ import pickle
 from itertools import product
 from tqdm import tqdm
 
-import numpy as np
 
 def detection_hyperparameter_tuning(detector, X_test, X_val, Y_test):
     #Tuning detection hyperparameters
@@ -39,7 +40,7 @@ def detection_hyperparameter_tuning(detector, X_test, X_val, Y_test):
     print(f"Best detection hyperparameters set to quantile={best_quantile}, window={best_window}")
     return best_quantile, best_window
             
-def backtime_attack(model_name, dataset_name):
+def backtime_attack(dataset_name):
     #Load original dataset
     X_train, _ = data_loader.load_train_data(dataset_name)
     x_test, y_test, _ = data_loader.load_test_data(dataset_name)
@@ -61,7 +62,7 @@ def backtime_attack(model_name, dataset_name):
     print("[BackTime] Loaded X_ATK with shape:", X_ATK.shape) 
     
     backtime.plot_full_timeseries_clean(X_train, X_ATK, backdoor_features)
-
+    
     #Set detector and hyperparameters    
     detector = ae.AE(nI=X_ATK.shape[1])
     
@@ -125,7 +126,7 @@ if __name__ == '__main__':
     dataset_name = input("Enter dataset name (BATADAL/SWAT/WADI): ").upper()
     start_time = time.time()
     if model_name == 'BACKTIME':
-        y_test, y_pred = backtime_attack(model_name, dataset_name)
+        y_test, y_pred = backtime_attack(dataset_name)
     else:
         y_test, y_pred = reconstructed_detector(model_name, dataset_name)
     end_time= time.time()
